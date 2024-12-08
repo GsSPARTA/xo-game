@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D XO Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to bottom, #1e3c72, #2a5298);
+      color: #fff;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+
+    .game-container {
+      max-width: 600px;
+      margin: 20px auto;
+      padding: 20px;
+      border-radius: 15px;
+      background: rgba(0, 0, 0, 0.7);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    h1 {
+      font-size: 2.5rem;
+    }
+
+    #settings {
+      margin: 20px 0;
+    }
+
+    #timer {
+      font-size: 1.2rem;
+      margin: 10px 0;
+    }
+
+    #game-board {
+      display: grid;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .grid-cell {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(to bottom right, #444, #222);
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 2rem;
+      font-weight: bold;
+      color: #fff;
+      cursor: pointer;
+      transition: transform 0.2s, background 0.3s;
+    }
+
+    .grid-cell:hover {
+      transform: scale(1.1);
+      background: linear-gradient(to bottom right, #666, #333);
+    }
+
+    .winning-cell {
+      background: linear-gradient(to bottom right, #4caf50, #388e3c);
+    }
+
+    #result {
+      font-size: 1.5rem;
+      margin-top: 20px;
+      color: #4caf50;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1>3D XO Game</h1>
+    <div id="settings">
+      <label for="grid-size">Grid Size:</label>
+      <select id="grid-size">
+        <option value="3">3x3</option>
+        <option value="4">4x4</option>
+        <option value="5">5x5</option>
+      </select>
+      <label for="game-mode">Game Mode:</label>
+      <select id="game-mode">
+        <option value="ai">Play with AI</option>
+        <option value="two-player">Two Players</option>
+      </select>
+      <button id="start-game">Start Game</button>
+    </div>
+    <div id="timer">Time Left: <span id="time-left">30</span>s</div>
+    <div id="game-board"></div>
+    <p id="result"></p>
+  </div>
+  <script>
+    const board = document.getElementById("game-board");
+    const gridSizeSelector = document.getElementById("grid-size");
+    const gameModeSelector = document.getElementById("game-mode");
+    const startButton = document.getElementById("start-game");
+    const timerDisplay = document.getElementById("time-left");
+    const resultDisplay = document.getElementById("result");
+
+    let gridSize = 3;
+    let gameMode = "ai";
+    let boardState = [];
+    let currentPlayer = "X";
+    let timer = 30;
+    let timerInterval;
+
+    // إنشاء الشبكة
+    function createBoard() {
+      board.innerHTML = "";
+      board.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+      boardState = Array(gridSize).fill(null).map(() => Array(gridSize).fill(null));
+      for (let i = 0; i < gridSize * gridSize; i++) {
+        const cell = document.createElement("div");
+        cell.classList.add("grid-cell");
+        cell.dataset.index = i;
+        cell.addEventListener("click", handleCellClick);
+        board.appendChild(cell);
+      }
+    }
+
+    // التعامل مع النقرات
+    function handleCellClick(event) {
+      const index = event.target.dataset.index;
+      const row = Math.floor(index / gridSize);
+      const col = index % gridSize;
+
+      if (!boardState[row][col] && !resultDisplay.textContent) {
+        boardState[row][col] = currentPlayer;
+        event.target.textContent = currentPlayer;
+        if (checkWinner(row, col)) return;
+        currentPlayer = currentPlayer === "X" ? "O" : "X";
+
+        if (gameMode === "ai" && currentPlayer === "O") {
+          playAI();
+        }
+      }
+    }
+
+    // حركة الذكاء الاصطناعي
+    function playAI() {
+      let emptyCells = [];
+      boardState.forEach((row, rIndex) => {
+        row.forEach((cell, cIndex) => {
+          if (!cell) emptyCells.push({ row: rIndex, col: cIndex });
+        });
+      });
+
+      if (emptyCells.length > 0) {
+        const move = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+        const cellIndex = move.row * gridSize + move.col;
+        const cell = board.querySelector(`[data-index='${cellIndex}']`);
+        boardState[move.row][move.col] = "O";
+        cell.textContent = "O";
+        checkWinner(move.row, move.col);
+        currentPlayer = "X";
+      }
+    }
+
+    // التحقق من الفائز
+    function checkWinner(row, col) {
+      const winConditions = [
+        boardState[row],
+        boardState.map((r) => r[col]),
+        boardState.map((_, idx) => boardState[idx][idx]),
+        boardState.map((_, idx) => boardState[idx][gridSize - idx - 1])
+      ];
+
+      if (winConditions.some((line) => line.every((cell) => cell === currentPlayer))) {
+        endGame(`${currentPlayer} Wins!`);
+        highlightWinningCells(row, col);
+        return true;
+      } else if (boardState.flat().every((cell) => cell)) {
+        endGame("It's a Draw!");
+        return true;
+      }
+      return false;
+    }
+
+    // تمييز الخلايا الفائزة
+    function highlightWinningCells() {
+      document.querySelectorAll(".grid-cell").forEach((cell, index) => {
+        const r = Math.floor(index / gridSize);
+        const c = index % gridSize;
+        if (boardState[r][c] === currentPlayer) cell.classList.add("winning-cell");
+      });
+    }
+
+    // إنهاء اللعبة
+    function endGame(message) {
+      clearInterval(timerInterval);
+      resultDisplay.textContent = message;
+      document.querySelectorAll(".grid-cell").forEach(cell => cell.removeEventListener("click", handleCellClick));
+    }
+
+    // المؤقت
+    function startTimer() {
+      clearInterval(timerInterval);
+      timer = 30;
+      timerDisplay.textContent = timer;
+      timerInterval = setInterval(() => {
+        timer--;
+        timerDisplay.textContent = timer;
+        if (timer <= 0) {
+          clearInterval(timerInterval);
+          endGame(`${currentPlayer} Timeout!`);
+        }
+      }, 1000);
+    }
+
+    // بدء اللعبة
+    startButton.addEventListener("click", () => {
+      gridSize = parseInt(gridSizeSelector.value);
+      gameMode = gameModeSelector.value;
+      currentPlayer = "X";
+      resultDisplay.textContent = "";
+      createBoard();
+      startTimer();
+    });
+  </script>
+</body>
+</html>
